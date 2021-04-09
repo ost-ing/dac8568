@@ -1,53 +1,111 @@
 //! # dac8568 library
 //! A small library for using the dac8568.
 
-#![deny(missing_docs)]
+#![allow(missing_docs)]
 #![deny(warnings)]
 #![no_std]
 #![allow(dead_code)]
 
 use embedded_hal::digital::v2::OutputPin;
 
-/// dac8568
+pub enum ChannelSelect {
+    A = 0,
+    B = 1,
+    C = 2,
+    D = 3,
+    E = 4,
+    F = 5,
+    G = 6,
+    H = 7,
+    NOMSG = 8,
+    BROADCAST = 9,
+}
+
+pub enum ControlType {
+    WriteToInputRegister = 0,
+    UpdateRegister = 1, 
+    WriteToChannelAndUpdateAllRegisters = 2,
+    WriteToChannelAndUpdateSingleRegister = 3,
+    PowerDownComm = 4,
+    WriteToClearCodeRegister = 5,
+    WriteToLDACRegister = 6,
+    SoftwareReset = 7,
+}
+
+pub enum SetupMode {
+  Static = 8,
+  Flex = 9
+}
+
+pub enum ClearCodeFeature {
+  ClearToZeroScale = 0,
+  ClearToMidScale = 1, 
+  ClearToFullScale = 2, 
+  IgnoreClearPin = 3,
+}
+
+pub enum InternalRefCommFeature {
+  PowerDownIntRefStatic = 0,
+  PowerUpIntRefStatic = 1,
+//   PowerUpIntRefFlex = 0,
+//   PowerUpIntRefAlwaysFlex = 0,
+//   PowerDownIntRefFlex = 0,
+//   SwitchFromFlexToStatic = 0
+} 
+
+/// TODO
+pub enum Register {
+  A = 1,
+  B = 2,
+  C = 4,
+  D = 8,
+  E = 16,
+  F = 32,
+  G = 64,
+  H = 128
+}
+
+/// TODO
+pub enum PowerModes {
+  PowerUp = 0,
+  PowerDown1KToGround = 16,
+  PowerDown100KToGround = 32,
+  PowerDownHighZToGround = 48
+}
+
+/// TODO
+pub enum InternalRefCommData {
+  Default = 0,
+  PowerUpIntRefFlex = 32768,
+  PowerUpIntRefAlwaysFlex = 40960,
+  PowerDownIntRefFlex = 49152,
+}
+
+///
+
+
+/// The Message that is eventually serialized and transmitted to the DAC
+pub struct Message {
+    feature: u8, // 4 bits
+    /// Todo, only DAC8568 is supported. DAC7568 = 12, DAC8168 = 14
+    data: u16,  // data
+    address: u8, // 4 bits
+    control: u8, // 4 bits
+    prefix: u8, // 4 bits
+}
+
+impl Message {
+    fn get_payload(&self) -> [u8; 4] {
+        [self.prefix, self.control, self.address, (self.data << 8) as u8, (self.data << 0) as u8, self.feature]
+    }
+}
+
+/// DAC8568
 pub struct Dac<NSS, LDAC, CLR> {
     nss: NSS,
     ldac: LDAC,
     clear: CLR,
     active: bool,
-}
-
-/// Channel selection enum
-/// DAC5864 has 4 different channels
-#[allow(dead_code)]
-#[repr(u8)]
-#[derive(PartialEq)]
-pub enum Channel {
-    /// Channel A
-    A = 0b0000,
-    /// Channel B
-    B = 0b0010,
-    /// Channel C
-    C = 0b0100,
-    /// Channel D
-    D = 0b0110,
-    /// All Channels
-    ALL = 0b0111,
-}
-
-impl Channel {
-    /// Get the Channel enumeration from an index (begins at 0)
-    pub fn from_index(index: u8) -> Channel {
-        if index == 0 {
-            return Channel::A;
-        } else if index == 1 {
-            return Channel::B;
-        } else if index == 2 {
-            return Channel::C;
-        } else if index == 3 {
-            return Channel::D;
-        }
-        panic!("Channel unknown for index {}", index);
-    }
 }
 
 /// DAC Related errors
@@ -58,32 +116,6 @@ pub enum DacError {
     BusWriteError,
 }
 
-/// Helper function to get the correct communication payload that
-/// is sent down the wire to the DAC
-fn get_payload(channel: Channel, value: u16) -> [u8; 3] {
-    let mut command: [u8; 3] = [0; 3];
-
-    // Channel select
-    // a 0b00010000
-    // b 0b00010010
-    // c 0b00010100
-    // d 0b00010110
-    command[0] = 0b00010000 | (channel as u8);
-    // Upper 8 bits
-    command[1] = ((value & 0xFF00) >> 8) as u8;
-    // Lower 8 bits
-    command[2] = (value & 0xFF) as u8;
-
-    command
-}
-
-/// Platform agnostic delay helper
-fn delay() {
-    let mut x = 0;
-    while x < 10000 {
-        x += 1;
-    }
-}
 
 impl<NSS, LDAC, CLR> Dac<NSS, LDAC, CLR>
 where
@@ -101,68 +133,72 @@ where
         }
     }
 
-    /// Enables the DAC by toggling the Enable, NSS and LDAC lines
-    pub fn enable(&mut self) {
-        self.clear.set_low().unwrap_or_default();
-        self.nss.set_low().unwrap_or_default();
-        self.nss.set_high().unwrap_or_default();
-        self.clear.set_high().unwrap_or_default();
-
-        // Rising edge to reset the DAC registers
-        self.ldac.set_low().unwrap_or_default();
-
-        delay();
-        self.ldac.set_high().unwrap_or_default();
-
-        delay();
-        self.ldac.set_low().unwrap_or_default();
-        self.active = true;
+    pub fn get_power_message(mode: PowerModes, channel: u8) -> Message {
+        Message {
+            prefix: 0,
+            control: ControlType::PowerDownComm as u8,
+            data: (mode as u16) | (channel as u16 >> 4),
+            feature: channel,
+            address: 0,
+        }
     }
 
-    /// Write to the DAC via a blocking call on the specified SPI interface
-    pub fn write_blocking(
-        &mut self,
-        spi: &mut dyn embedded_hal::blocking::spi::Write<u8, Error = ()>,
-        channel: Channel,
-        value: u16,
-    ) -> Result<(), DacError> {
-        if !self.active {
-            return Ok(());
+    pub fn get_enable_message(control: ControlType, data: InternalRefCommData, feature: InternalRefCommFeature) -> Message {
+        Message {
+            prefix: 0,
+            control: control as u8,
+            data: data as u16,
+            feature: feature as u8,
+            address: 0,
         }
-        let command: [u8; 3] = get_payload(channel, value);
+    }
 
-        self.clear.set_low().unwrap_or_default();
-        self.nss.set_low().unwrap_or_default();
-        let result = spi.write(&command);
-        self.nss.set_high().unwrap_or_default();
-        self.clear.set_high().unwrap_or_default();
-
-        match result {
-            Ok(v) => Ok(v),
-            Err(_e) => Err(DacError::BusWriteError),
+    pub fn get_write_message(channel: ChannelSelect, value: u16) -> Message {
+        Message {
+            prefix: 0,
+            feature: 0,
+            control: ControlType::WriteToChannelAndUpdateSingleRegister as u8,
+            address: channel as u8,
+            data: value,
         }
     }
 
     /// For asynchronous communication methods (e.g. Interrupt or DMA), this function
     /// prepares the DAC for the transfer, generates the command and passes it back to the initiator
     /// via the callback parameter
-    pub fn prepare_transfer<F: FnMut([u8; 3]) -> ()>(
+    pub fn prepare_transfer<F: FnMut([u8; 4]) -> ()>(
         &mut self,
-        channel: Channel,
-        value: u16,
+        message: Message,
         mut callback: F,
     ) {
         if !self.active {
             return;
         }
-        let command: [u8; 3] = get_payload(channel, value);
+        let command: [u8; 4] = message.get_payload();
 
-        self.clear.set_low().unwrap_or_default();
         self.nss.set_low().unwrap_or_default();
-
         callback(command);
-
         self.nss.set_high().unwrap_or_default();
-        self.clear.set_high().unwrap_or_default();
+    }   
+
+    /// Write to the DAC via a blocking call on the specified SPI interface
+    pub fn write_blocking(
+        &mut self,
+        spi: &mut dyn embedded_hal::blocking::spi::Write<u8, Error = ()>,
+        message: Message
+    ) -> Result<(), DacError> {
+        if !self.active {
+            return Ok(());
+        }
+        let command: [u8; 4] = message.get_payload();
+
+        self.nss.set_low().unwrap_or_default();
+        let result = spi.write(&command);
+        self.nss.set_high().unwrap_or_default();
+
+        match result {
+            Ok(v) => Ok(v),
+            Err(_e) => Err(DacError::BusWriteError),
+        }
     }
 }
