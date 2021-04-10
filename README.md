@@ -1,16 +1,29 @@
-# dac8568
+# dac8568 
 
 A platform agnostic library for the Texas Instruments DAC8568.
 
 - https://crates.io/crates/dac8568
 
+![dac8568](/documentation/dac8568_ssop16.png)
+
 ## features
 
 - Support for Texas Instruments DAC8568
-- Limited subset of DAC8568 features supported
 - Full no-std support
 - Implemented with `embedded-hal` (https://docs.rs/embedded-hal/0.2.3/embedded_hal)
 - Blocking and non-blocking support
+
+## dac features
+
+- Synchronous feature support
+- Static mode
+
+## wip features
+
+Feel free to create an issue and PR if you would like to add support for the more advanced features of this DAC series.
+
+- Asynchronous modes utilizing the LDAC line
+- Flexible mode
 
 ## example
 

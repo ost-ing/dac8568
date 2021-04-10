@@ -8,6 +8,7 @@
 
 use embedded_hal::digital::v2::OutputPin;
 
+#[derive(PartialEq, Copy, Clone)]
 pub enum Channel {
     A = 0,
     B = 1,
@@ -148,7 +149,7 @@ impl Message {
         }
     }
 
-    fn get_payload(&self) -> [u8; 4] {
+    pub fn get_payload(&self) -> [u8; 4] {
         let mut payload: u32 = 0x00;
         payload = payload | ((self.prefix as u32) << 28);
         payload = payload | ((self.control as u32) << 24);
