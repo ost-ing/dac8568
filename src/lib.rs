@@ -161,8 +161,8 @@ impl Message {
 }
 
 /// DAC8568
-pub struct Dac<NSS> {
-    nss: NSS,
+pub struct Dac<SYNC> {
+    sync: SYNC,
     active: bool,
 }
 
@@ -174,13 +174,16 @@ pub enum DacError {
     BusWriteError,
 }
 
-impl<NSS> Dac<NSS>
+impl<SYNC> Dac<SYNC>
 where
-    NSS: OutputPin,
+    SYNC: OutputPin,
 {
     /// Initialize a new instance of dac8568
-    pub fn new(nss: NSS) -> Self {
-        Self { nss, active: false }
+    pub fn new(sync: SYNC) -> Self {
+        Self {
+            sync,
+            active: false,
+        }
     }
 
     pub fn enable(&mut self) {
@@ -196,9 +199,9 @@ where
         }
         let command: [u8; 4] = message.get_payload();
 
-        self.nss.set_low().unwrap_or_default();
+        self.sync.set_low().unwrap_or_default();
         callback(command);
-        self.nss.set_high().unwrap_or_default();
+        self.sync.set_high().unwrap_or_default();
     }
 
     /// Write to the DAC via a blocking call on the specified SPI interface
@@ -212,9 +215,9 @@ where
         }
         let command: [u8; 4] = message.get_payload();
 
-        self.nss.set_low().unwrap_or_default();
+        self.sync.set_low().unwrap_or_default();
         let result = spi.write(&command);
-        self.nss.set_high().unwrap_or_default();
+        self.sync.set_high().unwrap_or_default();
 
         match result {
             Ok(v) => Ok(v),
