@@ -31,18 +31,29 @@ Feel free to create an issue and PR if you would like to add support for the mor
 Note: Quick example based on the `stm32h7xx-hal`.
 
 ```rust
-// Initialise NSS for SPI communications
-let spi = ...;
-let nss = nss.into_push_pull_output();
+// Initialise SPI. Ensure correct polarity and phase are respected
+let spi: Spi<SPI1, Enabled> = interface.spi(
+    (sck, NoMiso, mosi),
+    spi::MODE_1, // polarity: Polarity::IdleLow,
+                 // phase: Phase::CaptureOnSecondTransition,
+    20.mhz(),
+    prec,
+    clocks,
+);
+// Initialise SYNC for SPI communications
+let sync = sync.into_push_pull_output();
 // Initialize the dac instance
-let mut dac = dac8568::Dac::new(nss);
-dac.enable();
+let mut dac = dac8568::Dac::new(spi, sync);
 // Get a "write" message to set the voltage of a given channel
 let message = dac8568::Message::get_write_message(dac8568::Channel::A, voltage);
-// Now transfer the data either as a blocking call
-dac.write_blocking(spi, message).unwrap();
-// or prepare the data for a DMA transfer
-dac.prepare_transfer(message, |payload| {
-    // begin DMA transfer with bytes payload 
-});
+// Now transfer the data as a blocking call
+dac.write(message).unwrap();
+
+// Alternatively, you can maintain ownership of the SPI and SYNC if you need to use
+// asynchronous communication such as Interrupts and/or DMA
+let (spi, sync) = dac.release();
+let transfer = DmaTransfer::new(spi);
+// Get the message data-frame that can be transferred manually
+let payload = message.get_payload(); 
+// And then write it to a DMA RAM buffer...
 ```

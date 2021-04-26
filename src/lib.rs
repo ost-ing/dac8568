@@ -9,20 +9,32 @@
 use embedded_hal::digital::v2::OutputPin;
 
 #[derive(PartialEq, Copy, Clone)]
+/// The broadcast channel
 pub enum Channel {
+    /// Channel A
     A = 0,
+    /// Channel B
     B = 1,
+    /// Channel C
     C = 2,
+    /// Channel D
     D = 3,
+    /// Channel E
     E = 4,
+    /// Channel F
     F = 5,
+    /// Channel G
     G = 6,
+    /// Channel H
     H = 7,
+    /// No message
     NOMSG = 8,
+    /// Broadcast (all channels)
     BROADCAST = 9,
 }
 
 impl Channel {
+    /// Get Channel from an index
     pub fn from_index(index: u8) -> Channel {
         match index {
             0 => Channel::A,
@@ -38,19 +50,33 @@ impl Channel {
     }
 }
 
+/// The message control type
 pub enum ControlType {
+    /// Write to input register [Untested]
     WriteToInputRegister = 0,
+    /// Update register [Untested]
     UpdateRegister = 1,
+    /// Write to channel and update all registers [Untested]
     WriteToChannelAndUpdateAllRegisters = 2,
+    /// Write to channel and update single register
     WriteToChannelAndUpdateSingleRegister = 3,
+    /// Power down
     PowerDownComm = 4,
+    /// Write to clear code register [Untested]
     WriteToClearCodeRegister = 5,
+    /// Write to LDAC register [Untested]
     WriteToLDACRegister = 6,
+    /// Software reset [Untested]
     SoftwareReset = 7,
 }
 
+
+/// Setup Mode. Currently this library only been tested
+/// Using the default Static mode
 pub enum SetupMode {
+    /// Static Mode
     Static = 8,
+    /// Flex Mode [Untested]
     Flex = 9,
 }
 
@@ -115,16 +141,18 @@ pub struct Message {
 }
 
 impl Message {
-    pub fn get_power_message(mode: PowerModes, channel: u8) -> Message {
+    /// Get internal power message [Untested]
+    pub fn get_power_internal_message() -> Message {
         Message {
-            prefix: 0,
-            control: ControlType::PowerDownComm as u8,
-            data: (mode as u16) | (channel as u16 >> 4),
-            feature: channel,
-            address: 0,
+            prefix: 0x00,
+            control: 0x08,
+            data: 0x0000,
+            feature: 0x00,
+            address: 0x01,
         }
     }
 
+    /// Get enable message [Untested]
     pub fn get_enable_message(
         control: ControlType,
         data: InternalRefCommData,
@@ -139,6 +167,7 @@ impl Message {
         }
     }
 
+    /// Get write message, which will update a channel with a given value
     pub fn get_write_message(channel: Channel, value: u16) -> Message {
         Message {
             prefix: 0,
@@ -149,6 +178,7 @@ impl Message {
         }
     }
 
+    /// Get the message payload
     pub fn get_payload(&self) -> [u8; 4] {
         let mut payload: u32 = 0x00;
         payload = payload | ((self.prefix as u32) << 28);
@@ -161,9 +191,9 @@ impl Message {
 }
 
 /// DAC8568
-pub struct Dac<SYNC> {
+pub struct Dac<SPI, SYNC> {
+    spi: SPI,
     sync: SYNC,
-    active: bool,
 }
 
 /// DAC Related errors
@@ -174,49 +204,30 @@ pub enum DacError {
     BusWriteError,
 }
 
-impl<SYNC> Dac<SYNC>
+impl<SPI, SYNC> Dac<SPI, SYNC>
 where
+    SPI: embedded_hal::blocking::spi::Write<u8>,
     SYNC: OutputPin,
 {
     /// Initialize a new instance of dac8568
-    pub fn new(sync: SYNC) -> Self {
+    pub fn new(spi: SPI, sync: SYNC) -> Self {
         Self {
+            spi,
             sync,
-            active: false,
         }
     }
 
-    pub fn enable(&mut self) {
-        self.active = true;
-    }
-
-    /// For asynchronous communication methods (e.g. Interrupt or DMA), this function
-    /// prepares the DAC for the transfer, generates the command and passes it back to the initiator
-    /// via the callback parameter
-    pub fn prepare_transfer<F: FnMut([u8; 4]) -> ()>(&mut self, message: Message, mut callback: F) {
-        if !self.active {
-            return;
-        }
-        let command: [u8; 4] = message.get_payload();
-
-        self.sync.set_low().unwrap_or_default();
-        callback(command);
-        self.sync.set_high().unwrap_or_default();
+    /// Consume the dac and return the underlying SPI and GPIO pins used by it
+    pub fn release(self) -> (SPI, SYNC) {
+        (self.spi, self.sync)
     }
 
     /// Write to the DAC via a blocking call on the specified SPI interface
-    pub fn write_blocking(
-        &mut self,
-        spi: &mut dyn embedded_hal::blocking::spi::Write<u8, Error = ()>,
-        message: Message,
-    ) -> Result<(), DacError> {
-        if !self.active {
-            return Ok(());
-        }
+    pub fn write(&mut self, message: Message) -> Result<(), DacError> {
         let command: [u8; 4] = message.get_payload();
 
         self.sync.set_low().unwrap_or_default();
-        let result = spi.write(&command);
+        let result = self.spi.write(&command);
         self.sync.set_high().unwrap_or_default();
 
         match result {
