@@ -70,7 +70,6 @@ pub enum ControlType {
     SoftwareReset = 7,
 }
 
-
 /// Setup Mode. Currently this library only been tested
 /// Using the default Static mode
 pub enum SetupMode {
@@ -146,9 +145,9 @@ impl Message {
         Message {
             prefix: 0x00,
             control: 0x08,
+            address: 0x00,
             data: 0x0000,
-            feature: 0x00,
-            address: 0x01,
+            feature: 0x01,
         }
     }
 
@@ -161,9 +160,9 @@ impl Message {
         Message {
             prefix: 0,
             control: control as u8,
+            address: 0,
             data: data as u16,
             feature: feature as u8,
-            address: 0,
         }
     }
 
@@ -171,10 +170,10 @@ impl Message {
     pub fn get_write_message(channel: Channel, value: u16) -> Message {
         Message {
             prefix: 0,
-            feature: 0,
             control: ControlType::WriteToChannelAndUpdateSingleRegister as u8,
             address: channel as u8,
             data: value,
+            feature: 0,
         }
     }
 
@@ -211,10 +210,7 @@ where
 {
     /// Initialize a new instance of dac8568
     pub fn new(spi: SPI, sync: SYNC) -> Self {
-        Self {
-            spi,
-            sync,
-        }
+        Self { spi, sync }
     }
 
     /// Consume the dac and return the underlying SPI and GPIO pins used by it
