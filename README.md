@@ -44,16 +44,17 @@ let spi: Spi<SPI1, Enabled> = interface.spi(
 let sync = sync.into_push_pull_output();
 // Initialize the dac instance
 let mut dac = dac8568::Dac::new(spi, sync);
-// Get a "write" message to set the voltage of a given channel
-let message = dac8568::Message::get_write_message(dac8568::Channel::A, voltage);
-// Now transfer the data as a blocking call
-dac.write(message).unwrap();
+// Configure the DAC to use the internal 2.5v reference
+dac.use_internal_reference().unwrap();
+// Now transfer the data to update the DAC as a blocking call
+dac.set_voltage(dac8568::Channel::A, voltage).unwrap();
 
 // Alternatively, you can maintain ownership of the SPI and SYNC if you need to use
 // asynchronous communication such as Interrupts and/or DMA
 let (spi, sync) = dac.release();
-let transfer = DmaTransfer::new(spi);
+// And then access the desired message directly
+let message = dac8568::Message::get_voltage_message(dac8568::Channel::A, voltage);
 // Get the message data-frame that can be transferred manually
 let payload = message.get_payload(); 
-// And then write it to a DMA RAM buffer...
+// And then write the message bytes to a DMA RAM buffer
 ```

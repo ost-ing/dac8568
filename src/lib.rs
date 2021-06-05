@@ -1,10 +1,8 @@
 //! # dac8568 library
 //! A small library for using the dac8568.
 
-#![allow(missing_docs)]
 #![deny(warnings)]
 #![no_std]
-#![allow(dead_code)]
 
 use embedded_hal::digital::v2::OutputPin;
 
@@ -60,7 +58,7 @@ pub enum ControlType {
     WriteToChannelAndUpdateAllRegisters = 2,
     /// Write to channel and update single register
     WriteToChannelAndUpdateSingleRegister = 3,
-    /// Power down
+    /// Power down [Untested]
     PowerDownComm = 4,
     /// Write to clear code register [Untested]
     WriteToClearCodeRegister = 5,
@@ -70,67 +68,14 @@ pub enum ControlType {
     SoftwareReset = 7,
 }
 
-/// Setup Mode. Currently this library only been tested
-/// Using the default Static mode
-pub enum SetupMode {
-    /// Static Mode
-    Static = 8,
-    /// Flex Mode [Untested]
-    Flex = 9,
-}
-
-pub enum ClearCodeFeature {
-    ClearToZeroScale = 0,
-    ClearToMidScale = 1,
-    ClearToFullScale = 2,
-    IgnoreClearPin = 3,
-}
-
-pub enum InternalRefCommFeature {
-    PowerDownIntRefStatic = 0,
-    PowerUpIntRefStatic = 1,
-    //   PowerUpIntRefFlex = 0,
-    //   PowerUpIntRefAlwaysFlex = 0,
-    //   PowerDownIntRefFlex = 0,
-    //   SwitchFromFlexToStatic = 0
-}
-
-/// TODO
-pub enum Register {
-    A = 1,
-    B = 2,
-    C = 4,
-    D = 8,
-    E = 16,
-    F = 32,
-    G = 64,
-    H = 128,
-}
-
-/// TODO
-pub enum PowerModes {
-    PowerUp = 0,
-    PowerDown1KToGround = 16,
-    PowerDown100KToGround = 32,
-    PowerDownHighZToGround = 48,
-}
-
-/// TODO
-pub enum InternalRefCommData {
-    Default = 0,
-    PowerUpIntRefFlex = 32768,
-    PowerUpIntRefAlwaysFlex = 40960,
-    PowerDownIntRefFlex = 49152,
-}
-
 ///
 
 /// The Message that is eventually serialized and transmitted to the DAC
-/// The inputshiftregister (SR) of the DAC7568,DAC8168,and DAC8568
-/// is 32 bits wide(as shown in Table1, Table2, and Table3, respectively),
-/// and consists of four Prefix bits (DB31 to DB28),
+/// The input shift register (SR) of the DAC7568, DAC8168, and DAC8568
+/// is 32 bits wide, and consists of four Prefix bits (DB31 to DB28),
 /// four control bits (DB27 to DB24), 16 databits (DB23 to DB4),
 /// and four additional feature bits. The 16 databits comprise the 16-, 14-, or 12-bit input code
+#[derive(Copy, Clone)]
 pub struct Message {
     prefix: u8,  // 4 bits
     control: u8, // 4 bits
@@ -140,34 +85,21 @@ pub struct Message {
 }
 
 impl Message {
-    /// Get internal power message [Untested]
-    pub fn get_power_internal_message() -> Message {
+    /// Get internal reference message
+    /// Used for switching DAC8568 from its default state using an external reference
+    /// To using its internal 2.5v reference
+    pub fn get_internal_reference_message(internal: bool) -> Message {
         Message {
             prefix: 0x00,
             control: 0x08,
             address: 0x00,
             data: 0x0000,
-            feature: 0x01,
+            feature: if internal { 0x01 } else { 0x00 },
         }
     }
 
-    /// Get enable message [Untested]
-    pub fn get_enable_message(
-        control: ControlType,
-        data: InternalRefCommData,
-        feature: InternalRefCommFeature,
-    ) -> Message {
-        Message {
-            prefix: 0,
-            control: control as u8,
-            address: 0,
-            data: data as u16,
-            feature: feature as u8,
-        }
-    }
-
-    /// Get write message, which will update a channel with a given value
-    pub fn get_write_message(channel: Channel, value: u16) -> Message {
+    /// Get voltage message, which will update a channel with a given value
+    pub fn get_voltage_message(channel: Channel, value: u16) -> Message {
         Message {
             prefix: 0,
             control: ControlType::WriteToChannelAndUpdateSingleRegister as u8,
@@ -191,12 +123,14 @@ impl Message {
 
 /// DAC8568
 pub struct Dac<SPI, SYNC> {
+    /// The SPI interface   
     spi: SPI,
+    /// The SPI's sync (select) line
     sync: SYNC,
 }
 
 /// DAC Related errors
-#[derive(Clone, Debug)]
+#[derive(Copy, Clone, Debug)]
 #[non_exhaustive]
 pub enum DacError {
     /// Unable to write to bus
@@ -218,8 +152,28 @@ where
         (self.spi, self.sync)
     }
 
+    /// Set the specified value to the given channel. This will update the DAC
+    /// to output the desired voltage
+    pub fn set_voltage(&mut self, channel: Channel, voltage: u16) -> Result<(), DacError> {
+        let message = Message::get_voltage_message(channel, voltage);
+        self.write(message)
+    }
+
+    /// Configure the DAC to use its internal reference mode of 2.5v rather than using an external
+    /// voltage reference
+    pub fn use_internal_reference(&mut self) -> Result<(), DacError> {
+        let message = Message::get_internal_reference_message(true);
+        self.write(message)
+    }
+
+    /// Configure the DAC to use its external reference mode rather than using the internal reference
+    pub fn use_external_reference(&mut self) -> Result<(), DacError> {
+        let message = Message::get_internal_reference_message(false);
+        self.write(message)
+    }
+
     /// Write to the DAC via a blocking call on the specified SPI interface
-    pub fn write(&mut self, message: Message) -> Result<(), DacError> {
+    fn write(&mut self, message: Message) -> Result<(), DacError> {
         let command: [u8; 4] = message.get_payload();
 
         self.sync.set_low().unwrap_or_default();
