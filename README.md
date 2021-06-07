@@ -46,6 +46,8 @@ let sync = sync.into_push_pull_output();
 let mut dac = dac8568::Dac::new(spi, sync);
 // Configure the DAC to use the internal 2.5v reference
 dac.use_internal_reference().unwrap();
+// Optionally, invert the output signal
+dac.set_inverted_output(true);
 // Now transfer the data to update the DAC as a blocking call
 dac.set_voltage(dac8568::Channel::A, voltage).unwrap();
 
@@ -53,7 +55,7 @@ dac.set_voltage(dac8568::Channel::A, voltage).unwrap();
 // asynchronous communication such as Interrupts and/or DMA
 let (spi, sync) = dac.release();
 // And then access the desired message directly
-let message = dac8568::Message::get_voltage_message(dac8568::Channel::A, voltage);
+let message = dac8568::Message::get_voltage_message(dac8568::Channel::A, voltage, false);
 // Get the message data-frame that can be transferred manually
 let payload = message.get_payload(); 
 // And then write the message bytes to a DMA RAM buffer

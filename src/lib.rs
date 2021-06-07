@@ -1,5 +1,5 @@
 //! # dac8568 library
-//! A small library for using the dac8568.
+//! A small library for using the TI DAC8568, DAC7568 and DAC8168
 
 #![deny(warnings)]
 #![no_std]
@@ -99,12 +99,14 @@ impl Message {
     }
 
     /// Get voltage message, which will update a channel with a given value
-    pub fn get_voltage_message(channel: Channel, value: u16) -> Message {
+    pub fn get_voltage_message(channel: Channel, value: u16, is_inverted: bool) -> Message {
+        let output = if is_inverted { u16::MAX - value } else { value };
+
         Message {
             prefix: 0,
             control: ControlType::WriteToChannelAndUpdateSingleRegister as u8,
             address: channel as u8,
-            data: value,
+            data: output,
             feature: 0,
         }
     }
@@ -123,10 +125,13 @@ impl Message {
 
 /// DAC8568
 pub struct Dac<SPI, SYNC> {
-    /// The SPI interface   
+    /// The SPI interface
     spi: SPI,
     /// The SPI's sync (select) line
     sync: SYNC,
+    /// If the output of the DAC is inverted.
+    /// Useful if the hardware engineer has designed an inverting gain stage after the DAC output
+    is_inverted: bool,
 }
 
 /// DAC Related errors
@@ -144,7 +149,11 @@ where
 {
     /// Initialize a new instance of dac8568
     pub fn new(spi: SPI, sync: SYNC) -> Self {
-        Self { spi, sync }
+        Self {
+            spi,
+            sync,
+            is_inverted: false,
+        }
     }
 
     /// Consume the dac and return the underlying SPI and GPIO pins used by it
@@ -152,10 +161,16 @@ where
         (self.spi, self.sync)
     }
 
+    /// Sets the output signal of the DAC to be inverted or non-inverted (default)
+    /// Useful if the hardware engineer has designed an inverting gain stage after the DAC output
+    pub fn set_inverted_output(&mut self, state: bool) {
+        self.is_inverted = state;
+    }
+
     /// Set the specified value to the given channel. This will update the DAC
     /// to output the desired voltage
     pub fn set_voltage(&mut self, channel: Channel, voltage: u16) -> Result<(), DacError> {
-        let message = Message::get_voltage_message(channel, voltage);
+        let message = Message::get_voltage_message(channel, voltage, self.is_inverted);
         self.write(message)
     }
 
@@ -184,5 +199,17 @@ where
             Ok(v) => Ok(v),
             Err(_e) => Err(DacError::BusWriteError),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn inverts_signal() {
+        let message = super::Message::get_voltage_message(super::Channel::A, 0, false);
+        assert_eq!(message.data, 0);
+
+        let message = super::Message::get_voltage_message(super::Channel::A, 0, true);
+        assert_eq!(message.data, u16::MAX);
     }
 }
