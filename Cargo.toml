@@ -1,10 +1,10 @@
 [package]
 name = "dac8568"
-version = "0.0.5"
+version = "0.0.6"
 authors = ["Oliver Stenning <code@ostenning.com>"]
 edition = "2018"
 description = "A simple platform agnostic library for the Texas Instruments DAC8568"
-keywords = ["embedded-hal", "driver", "dac", "8564", "DAC8568"]
+keywords = ["embedded-hal", "driver", "dac", "8568", "DAC8568"]
 categories = ["embedded", "hardware-support", "no-std"]
 license = "MIT"
 readme = "README.md"
