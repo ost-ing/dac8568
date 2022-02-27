@@ -4,7 +4,7 @@ A platform agnostic library for the Texas Instruments DAC8568.
 
 - https://crates.io/crates/dac8568
 
-![dac8568](/documentation/dac8568_ssop16.png)
+![dac8568](https://github.com/ostenning/images/blob/main/ssop16.png?raw=true)
 
 ## description
 
@@ -13,8 +13,8 @@ The `DAC7568`, `DAC8168`, and `DAC8568` are low-power, voltage-output, eight-cha
 ## features
 
 - Support for Texas Instruments DAC8568
-- Full no-std support
-- Implemented with `embedded-hal` (https://docs.rs/embedded-hal/0.2.3/embedded_hal)
+- Heapless & no-std compatible
+- Implemented with `embedded-hal` (https://docs.rs/embedded-hal/0.2.7/embedded_hal)
 - Blocking and non-blocking support
 - Basic feature set including synchronous static mode
 
