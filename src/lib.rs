@@ -111,15 +111,35 @@ impl Message {
         }
     }
 
-    /// Get the message payload
-    pub fn get_payload(&self) -> [u8; 4] {
+    /// Get software reset message
+    /// 8.2.10 Software Reset Function
+    /// The DAC7568, DAC8168, and DAC8568 contain a software reset feature.
+    /// If the software reset feature is executed, all registers inside the device are reset to default settings; that is,
+    /// all DAC channels are reset to the power-on reset code (power on reset to zero scale for grades A and C; power on reset to midscale for grades B and D).
+    pub fn get_software_reset_message() -> Message {
+        Message {
+            prefix: 0b0001,
+            control: 0b1100,
+            address: 0x00,
+            data: 0x00,
+            feature: 0x00,
+        }
+    }
+
+    /// Get the message payload word
+    pub fn get_payload_word(&self) -> u32 {
         let mut payload: u32 = 0x00;
-        payload = payload | ((self.prefix as u32) << 28);
-        payload = payload | ((self.control as u32) << 24);
-        payload = payload | ((self.address as u32) << 20);
-        payload = payload | ((self.data as u32) << 4);
-        payload = payload | ((self.feature as u32) << 0);
-        payload.to_be_bytes()
+        payload |= (self.prefix as u32) << 28;
+        payload |= (self.control as u32) << 24;
+        payload |= (self.address as u32) << 20;
+        payload |= (self.data as u32) << 4;
+        payload |= self.feature as u32;
+        payload
+    }
+
+    /// Get the message payload
+    pub fn get_payload_bytes(&self) -> [u8; 4] {
+        self.get_payload_word().to_be_bytes()
     }
 }
 
@@ -187,9 +207,19 @@ where
         self.write(message)
     }
 
+    /// Perform a software reset, clearing out all registers
+    /// 8.2.10 Software Reset Function
+    /// The DAC7568, DAC8168, and DAC8568 contain a software reset feature.
+    /// If the software reset feature is executed, all registers inside the device are reset to default settings; that is,
+    /// all DAC channels are reset to the power-on reset code (power on reset to zero scale for grades A and C; power on reset to midscale for grades B and D).
+    pub fn reset(&mut self) -> Result<(), DacError> {
+        let message = Message::get_software_reset_message();
+        self.write(message)
+    }
+
     /// Write to the DAC via a blocking call on the specified SPI interface
     fn write(&mut self, message: Message) -> Result<(), DacError> {
-        let command: [u8; 4] = message.get_payload();
+        let command: [u8; 4] = message.get_payload_bytes();
 
         self.sync.set_low().unwrap_or_default();
         let result = self.spi.write(&command);

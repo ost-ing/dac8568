@@ -36,7 +36,7 @@ let spi: Spi<SPI1, Enabled> = interface.spi(
     (sck, NoMiso, mosi),
     spi::MODE_1, // polarity: Polarity::IdleLow,
                  // phase: Phase::CaptureOnSecondTransition,
-    20.mhz(),
+    10.mhz(),
     prec,
     clocks,
 );
@@ -44,6 +44,8 @@ let spi: Spi<SPI1, Enabled> = interface.spi(
 let sync = sync.into_push_pull_output();
 // Initialize the dac instance
 let mut dac = dac8568::Dac::new(spi, sync);
+// Perform a software reset of DAC8568 to clear all registers
+dac.reset();
 // Configure the DAC to use the internal 2.5v reference
 dac.use_internal_reference().unwrap();
 // Optionally, invert the output signal
@@ -52,7 +54,7 @@ dac.set_inverted_output(true);
 dac.set_voltage(dac8568::Channel::A, voltage).unwrap();
 
 // Alternatively, you can maintain ownership of the SPI and SYNC if you need to use
-// asynchronous communication such as Interrupts and/or DMA
+// asynchronous communication such as Interrupts and/or DMA.
 let (spi, sync) = dac.release();
 // And then access the desired message directly
 let message = dac8568::Message::get_voltage_message(dac8568::Channel::A, voltage, false);
