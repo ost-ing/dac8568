@@ -6,7 +6,7 @@
 
 use embedded_hal::digital::v2::OutputPin;
 
-#[derive(PartialEq, Copy, Clone, Debug)]
+#[derive(Eq, PartialEq, Copy, Clone, Debug)]
 /// The broadcast channel
 pub enum Channel {
     /// Channel A
