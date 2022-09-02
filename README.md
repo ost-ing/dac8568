@@ -58,7 +58,7 @@ dac.set_voltage(dac8568::Channel::A, voltage).unwrap();
 let (spi, sync) = dac.release();
 // And then access the desired message directly
 let message = dac8568::Message::get_voltage_message(dac8568::Channel::A, voltage, false);
-// Get the message data-frame that can be transferred manually
-let payload = message.get_payload(); 
+// Get the message data that can be transferred manually
+let payload = message.get_payload_bytes();
 // And then write the message bytes to a DMA RAM buffer
 ```
