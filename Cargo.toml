@@ -1,6 +1,6 @@
 [package]
 name = "dac8568"
-version = "0.0.7"
+version = "0.0.8"
 authors = ["Oliver Stenning <code@ostenning.com>"]
 edition = "2018"
 description = "A simple platform agnostic library for the Texas Instruments DAC8568, DAC8168 and DAC7568"
