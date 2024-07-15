@@ -1,14 +1,14 @@
 [package]
 name = "dac8568"
-version = "0.0.9"
-authors = ["Oliver Stenning <code@ostenning.com>"]
+version = "0.0.10"
+authors = ["Oliver <18360865+ost-ing@users.noreply.github.com>"]
 edition = "2018"
 description = "A simple platform agnostic library for the Texas Instruments DAC8568, DAC8168 and DAC7568"
 keywords = ["embedded-hal", "driver", "DAC7568", "DAC8168", "DAC8568"]
 categories = ["embedded", "hardware-support", "no-std"]
 license = "MIT"
 readme = "README.md"
-repository = "https://github.com/ostenning/dac8568"
+repository = "https://github.com/ost-ing/dac8568"
 
 [dependencies]
 embedded-hal = { version = "0.2.7", features = ["unproven"] }
