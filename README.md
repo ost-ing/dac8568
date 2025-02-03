@@ -32,7 +32,11 @@ Feel free to create an issue and PR if you would like to add support for the mor
 ```rust
 // The following example is compatible with embassy.rs and its asynchronous SPI
 
-// Initialise SPI. Ensure correct polarity and phase are respected
+// Set LDAC low to update DAC immedaitely after writing
+let _ldac = Output::new(ldac, embassy_stm32::gpio::Level::Low, Speed::Medium);
+// Set CLR high for normal operation
+let _clear = Output::new(clear, embassy_stm32::gpio::Level::High, Speed::Medium);
+// Initialize asynchronous SPI with DMA. Ensure correct polarity and phase
 let mut spi_config = spi::Config::default();
 {
     spi_config.frequency = mhz(1);
@@ -43,12 +47,6 @@ let mut spi_config = spi::Config::default();
     spi_config.rise_fall_speed = Speed::High;
     spi_config.bit_order = BitOrder::MsbFirst;
 }
-
-// Set LDAC low to update DAC immedaitely after writing
-let _ldac = Output::new(ldac, embassy_stm32::gpio::Level::Low, Speed::Medium);
-// Set CLR high for normal operation
-let _clear = Output::new(clear, embassy_stm32::gpio::Level::High, Speed::Medium);
-// Initialize asynchronous SPI with DMA
 let spi = spi::Spi::new_txonly(interface, sck, mosi, p.DMA2_CH4, spi_config);
 // Initilize the sync line
 let sync = Output::new(sync, embassy_stm32::gpio::Level::High, Speed::High);
