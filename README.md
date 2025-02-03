@@ -14,8 +14,8 @@ The `DAC7568`, `DAC8168`, and `DAC8568` are low-power, voltage-output, eight-cha
 
 - Support for Texas Instruments DAC8568
 - Heapless & no-std compatible
-- Implemented with `embedded-hal` (https://docs.rs/embedded-hal/0.2.7/embedded_hal)
-- Blocking and non-blocking support
+- Implemented with [embedded-hal](https://crates.io/crates/embedded-hal) and [embedded-async-hal](https://crates.io/crates/embedded-hal-async)
+- Asynchronous and blocking support
 - Basic feature set including synchronous static mode
 
 ## wip features
@@ -28,33 +28,43 @@ Feel free to create an issue and PR if you would like to add support for the mor
 
 ## example
 
-Note: Quick example based on the `stm32h7xx-hal`.
-
+ 
 ```rust
+// The following example is compatible with embassy.rs and its asynchronous SPI
+
 // Initialise SPI. Ensure correct polarity and phase are respected
-let spi: Spi<SPI1, Enabled> = interface.spi(
-    (sck, NoMiso, mosi),
-    spi::MODE_1, // polarity: Polarity::IdleLow,
-                 // phase: Phase::CaptureOnSecondTransition,
-    10.mhz(),
-    prec,
-    clocks,
-);
-// Initialise SYNC for SPI communications
-let sync = sync.into_push_pull_output();
-// Initialize the dac instance
+let mut spi_config = spi::Config::default();
+{
+    spi_config.frequency = mhz(1);
+    spi_config.mode = Mode {
+        phase: spi::Phase::CaptureOnSecondTransition,
+        polarity: spi::Polarity::IdleLow,
+    };
+    spi_config.rise_fall_speed = Speed::High;
+    spi_config.bit_order = BitOrder::MsbFirst;
+}
+
+// Set LDAC low to update DAC immedaitely after writing
+let _ldac = Output::new(ldac, embassy_stm32::gpio::Level::Low, Speed::Medium);
+// Set CLR high for normal operation
+let _clear = Output::new(clear, embassy_stm32::gpio::Level::High, Speed::Medium);
+// Initialize asynchronous SPI with DMA
+let spi = spi::Spi::new_txonly(interface, sck, mosi, p.DMA2_CH4, spi_config);
+// Initilize the sync line
+let sync = Output::new(sync, embassy_stm32::gpio::Level::High, Speed::High);
+// Initialize the asynchronous dac instance
 let mut dac = dac8568::Dac::new(spi, sync);
 // Perform a software reset of DAC8568 to clear all registers
-dac.reset();
+dac.reset().await;
 // Configure the DAC to use the internal 2.5v reference
-dac.use_internal_reference().unwrap();
+dac.use_internal_reference().await.unwrap();
 // Optionally, invert the output signal
 dac.set_inverted_output(true);
 // Now transfer the data to update the DAC as a blocking call
-dac.set_voltage(dac8568::Channel::A, voltage).unwrap();
+dac.set_voltage(dac8568::Channel::A, voltage).await.unwrap();
 
 // Alternatively, you can maintain ownership of the SPI and SYNC if you need to use
-// asynchronous communication such as Interrupts and/or DMA.
+// custom transfer mechanisms like circular DMA on non-async drivers.
 let (spi, sync) = dac.release();
 // And then access the desired message directly
 let message = dac8568::Message::get_voltage_message(dac8568::Channel::A, voltage, false);
