@@ -167,7 +167,6 @@ pub struct Dac<SPI, SYNC, MODE> {
     _mode: PhantomData<MODE>,
 }
 
-
 pub mod mode {
     /// Blocking implementation
     pub struct Blocking;
@@ -197,7 +196,6 @@ impl<SPI, SYNC, MODE> Dac<SPI, SYNC, MODE> {
         self.is_inverted = state;
     }
 }
-
 
 #[cfg(test)]
 mod tests {

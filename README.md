@@ -1,8 +1,10 @@
-# dac8568 
+# dac8568
 
 A platform agnostic library for the Texas Instruments DAC8568.
 
-- https://crates.io/crates/dac8568
+[![crates.io](https://img.shields.io/crates/v/dac8568.svg)](https://crates.io/crates/dac8568)
+[![Documentation](https://docs.rs/dac8568/badge.svg)](https://docs.rs/dac8568)
+![Minimum Supported Rust Version](https://img.shields.io/badge/rustc-1.46+-blue.svg)
 
 ![dac8568](https://github.com/ostenning/images/blob/main/ssop16.png?raw=true)
 
@@ -28,7 +30,6 @@ Feel free to create an issue and PR if you would like to add support for the mor
 
 ## example
 
- 
 ```rust
 // The following example is compatible with embassy.rs and its asynchronous SPI
 
